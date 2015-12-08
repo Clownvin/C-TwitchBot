@@ -41,22 +41,7 @@ char line[1100];
 
 int main(void) {
   start_connection();
-  send_command("JOIN", "#dendi");
-  send_command("JOIN", "#domingo");
-  send_command("JOIN", "#lirik");
-  send_command("JOIN", "#rocketbeanstv");
-  send_command("JOIN", "#dreadztv");
-  send_command("JOIN", "#starladder5");
-  send_command("JOIN", "#sodapoppin");
-  send_command("JOIN", "#lainkk");
-  send_command("JOIN", "#kungentv");
-  send_command("JOIN", "#wagamamatv");
-  send_command("JOIN", "#yogscast");
-  send_command("JOIN", "#starladder_hs_en");
-  send_command("JOIN", "#forsenlol");
-  send_command("JOIN", "#faceittv");
-  send_command("JOIN", "#esl_greatfrag");
-  send_command("JOIN", "#imaqtpie");
+  send_command("JOIN", "#vavbro");
   if (MULTI_THREAD) {
     int status;
     status = pthread_create(&line_reading_thread, NULL, line_reading_body, NULL);
