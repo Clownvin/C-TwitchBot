@@ -1,5 +1,5 @@
 /*
-Todo : Fix mo memory leaks, FIND OUT WHICH FREE IS CAUSING EXIT
+Todo : Flush
 
 
 */
@@ -15,7 +15,7 @@ Todo : Fix mo memory leaks, FIND OUT WHICH FREE IS CAUSING EXIT
 #define TWITCH_IRC_ADDRESS "irc.twitch.tv"
 #define TWITCH_IRC_PORT "6667"
 #define TWITCH_IRC_IPORT 6667
-#define OAUTH "youwish"
+#define OAUTH "loluwish"
 #define BOT_NICK "ElNighthawk"
 
 #define MULTI_THREAD false
