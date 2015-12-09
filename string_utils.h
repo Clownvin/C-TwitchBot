@@ -5,9 +5,9 @@ void string_after(char* buffer, const char* match, const int blen, const int mle
 
 bool contains(const char* buffer, const char* match, const int blen, const int mlen);
 
-bool starts_with(const char* buffer, const char* match, const int mlen);
+bool starts_with(const char* buffer, const char* match, const int blen, const int mlen);
 
-void split_string(const char* buffer, const char* regex, char** dest, const int blen, const int rlen);
+char** split_string(const char* buffer, const char* regex, const int blen, const int rlen);
 
 int pattern_count(const char* buffer, const char* regex, const int blen, const int rlen);
 
@@ -62,18 +62,54 @@ bool contains(const char* buffer, const char* match, const int blen, const int m
   return false;
 }
 
-bool starts_with(const char* buffer, const char* match, const int mlen) {
-  char* fsequence = malloc(mlen * 2); // *2 because apparently twitch allows 2byte chars.
-  strncpy(fsequence, buffer, mlen); // Copy mlen chars into fsequence
-  bool val = strcmp(fsequence, match) == 0; // check match
-  free (fsequence);
-  return val;
+bool starts_with(const char* buffer, const char* match, const int blen, const int mlen) {
+  if (blen < mlen) {
+    return false;
+  }
+  int i;
+  bool matches = true;
+  for (i = 0; i < mlen; i++) {
+    if (buffer[i] != match[i]) {
+      matches = false;
+      break;
+    }
+  }
+  return matches;
 }
 
-void split_string(const char* buffer, const char* regex, char** dest, const int blen, const int rlen) {
-  int count = pattern_count(buffer, regex, blen, rlen);
-  char pre[count][blen];
-
+char** split_string(const char* buffer, const char* regex, const int blen, const int rlen) {
+  int count = pattern_count(buffer, regex, blen, rlen) + 1;
+  char** pre = malloc(count);
+  int idx1 = 0, idx2 = 0, j, k;
+  for (j = 0; j < count; j++) {
+    pre[j] = malloc(blen);
+    memset(pre[j], '\0', blen);
+  }
+  if (count == 1) {
+    strcpy(pre[0], buffer);
+    return pre;
+  }
+  for (j = 0; j < blen; j++) {
+    if (buffer[j] == regex[0]) {
+      bool match = true;
+      for (k = j + 1; k < j + rlen; k++) {
+        if (buffer[k] != regex[k - j]) {
+          match = false;
+          break;
+        }
+      }
+      if (match) {
+        pre[idx1++][idx2] = '\0'; // Close off string
+        idx2 = 0;
+        j += rlen - 1; // Skip ahead
+        memset(pre[idx1], '\0', blen);
+        continue;
+      }
+    }
+    pre[idx1][idx2++] = buffer[j];
+  }
+  pre[idx1][idx2 + 1] = '\0'; // Close off final string.
+  return pre;
 }
 
 int pattern_count(const char* buffer, const char* regex, const int blen, const int rlen) {
