@@ -1,7 +1,5 @@
 /*
 Todo : Flush
-
-
 */
 
 #include <stdio.h>
@@ -15,25 +13,20 @@ Todo : Flush
 #define TWITCH_IRC_ADDRESS "irc.twitch.tv"
 #define TWITCH_IRC_PORT "6667"
 #define TWITCH_IRC_IPORT 6667
-#define OAUTH "loluwish"
+#define OAUTH "youwish"
 #define BOT_NICK "ElNighthawk"
 
 #define MULTI_THREAD false
-#define TEST_STRING "test"
 
 int start_connection();
 
 void* line_reading_body(void* arg);
 
-void handle_irc_input(const char* buffer);
+void handle_irc_input(const char* buffer, const int blen);
 
-void string_after(char* buffer, const char* match);
+void get_user(const char* buffer, char* dest, const int blen);
 
-bool contains(const char* buffer, const char* match);
-
-void get_user(const char* buffer, char* dest);
-
-void get_message(const char* buffer, char* dest);
+void get_message(const char* buffer, char* dest, const int blen);
 
 pthread_t line_reading_thread;
 bool running = true;
@@ -49,10 +42,10 @@ int main(void) {
     while (running) {} // Other stuff here.
   } else {
     while (running) {
-      strclear(line);
+      memset(line, '\0', 1100);
       read_line(line);
       printf("Line: \"%s\"\n", line);
-      handle_irc_input(line);
+      handle_irc_input(line, strlen(line));
     }
   }
   printf("Going down...");
@@ -68,7 +61,7 @@ int start_connection() {
   send_command("PASS", OAUTH);
   send_command("NICK", BOT_NICK);
   char identity[100];
-  strclear(identity);
+  memset(identity, '\0', 100);
   strcpy(identity, BOT_NICK);
   strcat(identity, " ");
   strcat(identity, TWITCH_IRC_ADDRESS);
@@ -80,100 +73,53 @@ int start_connection() {
 
 void* line_reading_body(void* arg) {
   while (running) {
-    strclear(line);
+    memset(line, '\0', 1100);
     read_line(line);
     printf("Line: \"%s\"\n", line);
-    handle_irc_input(line);
+    handle_irc_input(line, strlen(line));
   }
 }
 
-void handle_irc_input(const char* buffer) {
-  if (contains(buffer, "PING") && !contains(buffer, "PRIVMSG")) {
+void handle_irc_input(const char* buffer, const int blen) {
+  if (contains(buffer, "PING ", blen, 5) && !contains(buffer, "PRIVMSG", blen, 7)) {
     char message[1000];
-    strclear(message);
+    memset(message, '\0', 1000);
     strcpy(message, buffer);
-    string_after(message, "PING ");
+    string_after(message, "PING ", blen, 5);
     send_command("PONG", message);
     return;
   }
-  if (contains(buffer, "PRIVMSG #")) {
+  if (contains(buffer, "PRIVMSG #", blen, 9)) {
     char user[26];
     char message[1000];
-    strclear(user);
-    strclear(message);
-    get_user(buffer, user);
-    get_message(buffer, message);
-    if (strcmp(user, "vavbro") == 0) {
-      if (strcmp(message, "kill") == 0) {
-        send_message("#vavbro", "Aye aye, cap'n!");
-        running = false;
-      }
-      if (strcmp(message, TEST_STRING) == 0) {
-        send_message("#vavbro", "Arrrr, she be workin!");
+    memset(user, '\0', 26);
+    memset(message, '\0', 1000);
+    get_user(buffer, user, blen);
+    get_message(buffer, message, blen);
+    int mlen = strlen(message);
+    int ulen = strlen(user);
+    if (starts_with(message, "!", 1)) {
+      string_after(message, "!", mlen, 1);
+      if (strcmp(user, "vavbro") == 0) {
+        if (starts_with(message, "join #", 6)) {
+          string_after(message, "join ", mlen, 5);
+          send_command("JOIN", message);
+        } else if (strcmp(message, "kill") == 0) {
+          send_message("#vavbro", "Aye aye, cap'n!");
+          running = false;
+        }
       }
     }
     return;
   }
 }
 
-void string_after(char* buffer, const char* match) {
-  int blen = strlen(buffer);
-  int mlen = strlen(match);
-  if (mlen < 1 || blen < 1 || blen <= mlen) {
-    return;
-  }
+//There's a flaw where sometimes there'll be a random char at end of string.
+void get_user(const char* buffer, char* dest, const int blen) {
+  char user[26];
+  memset(user, '\0', 26); // Max twitch username length + 1 for nullchar
   int i;
-  int j;
-  for (i = 0; i < blen - mlen; i++) {
-    bool matches = true;
-    for (j = 0; j < mlen; j++) {
-      if (buffer[i + j] != match[j]) {
-        matches = false;
-        break;
-      }
-    }
-    if (matches) { // now i + mlen = start
-      char* newstr = malloc((blen - (i + mlen) + 1) * sizeof(char));
-      for (i = i + mlen, j = 0; i < blen; i++, j++) {
-        newstr[j] = buffer[i];
-      }
-      strcpy(buffer, newstr);
-      free (newstr);
-      return;
-    }
-  }
-  return;
-}
-
-bool contains(const char* buffer, const char* match) {
-  int blen = strlen(buffer);
-  int mlen = strlen(match);
-  if (mlen < 1 || blen < 1 || blen < mlen) {
-    return false;
-  }
-  int i;
-  int j;
-  for (i = 0; i < blen - mlen; i++) {
-    bool matches = true;
-    for (j = 0; j < mlen; j++) {
-      if (buffer[i + j] != match[j]) {
-        matches = false;
-        break;
-      }
-    }
-    if (matches) {
-      return true;
-    }
-  }
-  return false;
-}
-
-void get_user(const char* buffer, char* dest) {
-  char user[26]; // Max twitch username length + 1 for nullchar
-  strclear(user);
   int idx = 0;
-  int i;
-  int blen = strlen(buffer);
   for (i = 0; i < blen; i++) {
     if (buffer[i] != ':') {
       continue;
@@ -187,10 +133,10 @@ void get_user(const char* buffer, char* dest) {
   }
 }
 
-void get_message(const char* buffer, char* dest) {
-  int blen = strlen(buffer);
+//There's a flaw where sometimes there'll be a random char at end of string.
+void get_message(const char* buffer, char* dest, const int blen) {
   char message[1000]; // 500 is the highest I can possibly convieve every happening.
-  strclear(message);
+  memset(message, '\0', 1000);
   int i;
   int idx = 0;
   bool msg = false;

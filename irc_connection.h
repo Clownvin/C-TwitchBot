@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include "string_utils.h"
 
 int status = 0;
 int socketfd; // The socket descripter
@@ -20,8 +21,6 @@ int send_command(char * command, char * message);
 int send_message(char * channel, char * message);
 
 int send_whisper(char * channel, char * user, char * message);
-
-void strclear(char * buffer);
 
 int read_line(char * buffer);
 
@@ -75,7 +74,7 @@ int send_line(char * buffer) {
 
 int send_command(char * command, char * message) {
   char combined[500];
-  strclear(combined);
+  memset(combined, '\0', 500);
   strcpy(combined, command);
   strcat(combined, " ");
   strcat(combined, message);
@@ -85,7 +84,7 @@ int send_command(char * command, char * message) {
 
 int send_message(char * channel, char * message) {
   char combined[500];
-  strclear(combined);
+  memset(combined, '\0', 500);
   strcpy(combined, "PRIVMSG ");
   strcat(combined, channel);
   strcat(combined, " :");
@@ -96,20 +95,12 @@ int send_message(char * channel, char * message) {
 
 int send_whisper(char * channel, char * user, char * message) {
   char combined[500];
-  strclear(combined);
+  memset(combined, '\0', 500);
   strcpy(combined, "/w ");
   strcat(combined, user);
   strcat(combined, " ");
   strcat(combined, message);
   send_message(channel, combined);
-}
-
-void strclear(char * buffer) {
-  int blen = strlen(buffer);
-  int i;
-  for (i = 0; i < blen; i++) {
-    buffer[i] = '\0';
-  }
 }
 
 int read_line(char * buffer) {
