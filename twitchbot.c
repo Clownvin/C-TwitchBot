@@ -109,6 +109,7 @@ void handle_irc_input(const char* buffer, const int blen) {
       char** args = split_string(message, " ", mlen, 1);
       int arglen = pattern_count(message, " ", mlen, 1) + 1;
       handle_command(user, args, ulen, arglen);
+      free (args);
     }
     return;
   }
