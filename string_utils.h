@@ -79,10 +79,10 @@ bool starts_with(const char* buffer, const char* match, const int blen, const in
 
 char** split_string(const char* buffer, const char* regex, const int blen, const int rlen) {
   int count = pattern_count(buffer, regex, blen, rlen) + 1;
-  char** pre = malloc(count);
+  char** pre = calloc(count, blen);
   int idx1 = 0, idx2 = 0, j, k;
   for (j = 0; j < count; j++) {
-    pre[j] = malloc(blen);
+    pre[j] = (char*)malloc(blen);
     memset(pre[j], '\0', blen);
   }
   if (count == 1) {
@@ -102,7 +102,6 @@ char** split_string(const char* buffer, const char* regex, const int blen, const
         pre[idx1++][idx2] = '\0'; // Close off string
         idx2 = 0;
         j += rlen - 1; // Skip ahead
-        memset(pre[idx1], '\0', blen);
         continue;
       }
     }

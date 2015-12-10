@@ -10,16 +10,21 @@ Todo : Flush
 #include <stdbool.h>
 #include "irc_connection.h"
 
+//IRC Info
 #define TWITCH_IRC_ADDRESS "irc.twitch.tv"
 #define TWITCH_IRC_PORT "6667"
-#define OAUTH "youwish"
+//Group IRC Info
+#define GROUP_IRC_ADDRESS "192.16.64.180"
+#define GROUP_IRC_PORT "443"
+//Bot Info
+#define OAUTH "you wish"
 #define BOT_NICK "ElNighthawk"
 
-#define MULTI_THREAD false
+#define MULTI_THREAD true
 
 int start_connection();
 
-void* line_reading_body(void* arg);
+void* whisper_reading_body(void* arg); // For reading whispers
 
 void handle_irc_input(const char* buffer, const int blen);
 
@@ -29,29 +34,45 @@ void get_user(const char* buffer, char* dest, const int blen);
 
 void get_message(const char* buffer, char* dest, const int blen);
 
-pthread_t line_reading_thread;
+pthread_t whisper_reading_thread;
 bool running = true;
 char line[1100];
 struct connection irc_connection;
+struct connection group_connection;
 
 int main(void) {
+  //Store IRC info
   irc_connection.address = TWITCH_IRC_ADDRESS;
   irc_connection.port = TWITCH_IRC_PORT;
   irc_connection.connected = false;
+  //Store group info
+  group_connection.address = GROUP_IRC_ADDRESS;
+  group_connection.port = GROUP_IRC_PORT;
+  group_connection.connected = false;
+
   start_connection(&irc_connection);
   send_command(irc_connection, "JOIN", "#vavbro");
   if (MULTI_THREAD) {
+    start_connection(&group_connection); // Start group inside multi_thread block, since we can't use it if not multi-thread
+    send_command(group_connection, "CAP REQ", ":twitch.tv/commands");
     int status;
-    status = pthread_create(&line_reading_thread, NULL, line_reading_body, NULL);
-    printf("Thread status: %d\n", status);
-    while (running) {} // Other stuff here.
-  } else {
-    while (running) {
-      memset(line, '\0', 1100);
-      read_line(irc_connection, line);
-      printf("Line: \"%s\"\n", line);
-      handle_irc_input(line, strlen(line));
+    status = pthread_create(&whisper_reading_thread, NULL, whisper_reading_body, NULL);
+    printf("GROUP thread status: %d\n", status);
+  }
+  while (running) {
+    memset(line, '\0', 1100);
+    read_line(irc_connection, line);
+    printf("IRC: \"%s\"\n", line);
+    int len = strlen(line);
+    if (contains(line, "PING :", len, 6) && !contains(line, "PRIVMSG", len, 7)) {
+      char message[100];
+      memset(message, '\0', 100);
+      strcpy(message, line);
+      string_after(message, "PING ", len, 5);
+      send_command(irc_connection, "PONG", message);
+      continue;
     }
+    handle_irc_input(line, len);
   }
   printf("Going down...");
   return 0;
@@ -77,41 +98,43 @@ int start_connection(struct connection* to_connect) {
   return 0;
 }
 
-void* line_reading_body(void* arg) {
+void* whisper_reading_body(void* arg) {
+  char whisper_line[1100];
   while (running) {
-    memset(line, '\0', 1100);
-    read_line(irc_connection, line);
-    printf("Line: \"%s\"\n", line);
-    handle_irc_input(line, strlen(line));
+    memset(whisper_line, '\0', 1100);
+    read_line(group_connection, whisper_line);
+    printf("GROUP: \"%s\"\n", whisper_line);
+    int wlen = strlen(whisper_line);
+    if (contains(whisper_line, "PING :", wlen, 6) && !contains(whisper_line, "PRIVMSG", wlen, 7)) {
+      char message[100];
+      memset(message, '\0', 100);
+      strcpy(message, whisper_line);
+      string_after(message, "PING ", wlen, 5);
+      send_command(group_connection, "PONG", message);
+      continue;
+    }
+    handle_irc_input(whisper_line, wlen);
   }
 }
 
 void handle_irc_input(const char* buffer, const int blen) {
-  if (contains(buffer, "PING ", blen, 5) && !contains(buffer, "PRIVMSG", blen, 7)) {
-    char message[1000];
-    memset(message, '\0', 1000);
-    strcpy(message, buffer);
-    string_after(message, "PING ", blen, 5);
-    send_command(irc_connection, "PONG", message);
+  if (!contains(buffer, " PRIVMSG #", blen, 10) && !contains(buffer, " WHISPER ", blen, 9)) {
     return;
   }
-  if (contains(buffer, "PRIVMSG #", blen, 9)) {
-    char user[26];
-    char message[1000];
-    memset(user, '\0', 26);
-    memset(message, '\0', 1000);
-    get_user(buffer, user, blen);
-    get_message(buffer, message, blen);
-    int mlen = strlen(message);
-    int ulen = strlen(user);
-    if (starts_with(message, "!", mlen, 1)) {
-      string_after(message, "!", mlen, 1);
-      char** args = split_string(message, " ", mlen, 1);
-      int arglen = pattern_count(message, " ", mlen, 1) + 1;
-      handle_command(user, args, ulen, arglen);
-      free (args);
-    }
-    return;
+  char user[26];
+  char message[1000];
+  memset(user, '\0', 26);
+  memset(message, '\0', 1000);
+  get_user(buffer, user, blen);
+  get_message(buffer, message, blen);
+  int mlen = strlen(message);
+  int ulen = strlen(user);
+  if (starts_with(message, "!", mlen, 1)) {
+    string_after(message, "!", mlen, 1);
+    char** args = split_string(message, " ", mlen, 1);
+    int arglen = pattern_count(message, " ", mlen, 1) + 1;
+    handle_command(user, args, ulen, arglen);
+    free(args);
   }
 }
 
@@ -122,6 +145,9 @@ void handle_command(char* user, char** args, int ulen, int arglen) {
         if (strcmp(args[0], "kill") == 0) {
           send_message(irc_connection, "#vavbro", "Aye aye, captain!");
           running = false;
+        } else if (strcmp(args[0], "test") == 0) {
+          send_message(irc_connection, "#vavbro", "Test recieved, captain!");
+          send_whisper(group_connection, "#vavbro", user, "Test recieved, captain!");
         }
       break;
       case 2: // 2 Argument commands
@@ -155,7 +181,7 @@ void get_user(const char* buffer, char* dest, const int blen) {
 
 //There's a flaw where sometimes there'll be a random char at end of string.
 void get_message(const char* buffer, char* dest, const int blen) {
-  char message[1000]; // 500 is the highest I can possibly convieve every happening.
+  char message[1000]; // 500 is maximum. Using 1000 because Twitch allows chars with len 2 instead of 1
   memset(message, '\0', 1000);
   int i;
   int idx = 0;
