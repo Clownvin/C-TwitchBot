@@ -18,6 +18,8 @@ struct connection {
 
 int connect_to_irc(struct connection* to_connect); // Returns status
 
+int close_connection(struct connection* to_close);
+
 int send_line(struct connection send_connection, char * buffer);
 
 int send_command(struct connection send_connection, char * command, char * message);
@@ -59,6 +61,11 @@ int connect_to_irc(struct connection* to_connect) {
   to_connect->connected = true;
   printf("Connected. %d\n", to_connect->connected ? 0 : 1);
   return 0;
+}
+
+int close_connection(struct connection* to_close) {
+  to_close->connected = false;
+  return close(to_close->socketfd);
 }
 
 int send_line(struct connection send_connection, char * buffer) {
@@ -135,7 +142,6 @@ int read_line(struct connection read_connection, char * buffer) {
   }
   char readbuff[1]; // 1 byte of read.
   ssize_t bytes_recieved;
-  strcpy(buffer, "");
   do {
     bytes_recieved = recv(read_connection.socketfd, readbuff, 1, 0);
     if (bytes_recieved == 0) {
