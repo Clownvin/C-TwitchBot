@@ -60,7 +60,7 @@ int main(void) {
   group_connection.connected = false;
 
   start_connection(&irc_connection);
-  send_command(irc_connection, "JOIN", "DEFAULT_CHANNEL");
+  send_command(irc_connection, "JOIN", DEFAULT_CHANNEL);
   if (MULTI_THREAD) {
     start_connection(&group_connection); // Start group inside multi_thread block, since we can't use it if not multi-thread
     send_command(group_connection, "CAP REQ", ":twitch.tv/commands");
